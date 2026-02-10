@@ -58,9 +58,10 @@ class ApifyReelsScraper:
         skipped_date = 0
         skipped_parse = 0
         for item in items:
-            # Filter: only Video/Reel type (skip photos and carousels)
+            # Skip pure Image posts; keep Video, Sidecar, Reel
+            # Sidecars often contain video reels in Instagram
             item_type = item.get("type", "")
-            if item_type not in ("Video", "Reel", "video", "reel"):
+            if item_type == "Image":
                 skipped_type += 1
                 continue
 
