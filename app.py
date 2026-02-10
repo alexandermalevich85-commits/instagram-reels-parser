@@ -124,8 +124,12 @@ if st.button("Run parser", type="primary", disabled=not can_run):
     scraper = ApifyReelsScraper(config)
 
     # Fetch reels
-    with st.spinner(f"Fetching reels for {len(usernames)} accounts via Apify..."):
-        reels = scraper.fetch_reels(usernames, start_date, end_date)
+    try:
+        with st.spinner(f"Fetching reels for {len(usernames)} accounts via Apify..."):
+            reels = scraper.fetch_reels(usernames, start_date, end_date)
+    except Exception as e:
+        st.error(f"Apify error: {e}")
+        st.stop()
 
     st.info(f"Fetched {len(reels)} reels in date range")
 
@@ -137,8 +141,11 @@ if st.button("Run parser", type="primary", disabled=not can_run):
     users_without = [u for u in usernames if u not in csv_followers]
     api_followers: dict[str, int] = {}
     if users_without:
-        with st.spinner(f"Fetching follower counts for {len(users_without)} users..."):
-            api_followers = scraper.fetch_follower_counts(users_without)
+        try:
+            with st.spinner(f"Fetching follower counts for {len(users_without)} users..."):
+                api_followers = scraper.fetch_follower_counts(users_without)
+        except Exception as e:
+            st.warning(f"Could not fetch follower counts: {e}")
 
     enrich_with_followers(reels, api_followers, csv_followers)
     viral = filter_viral_reels(reels, config)
