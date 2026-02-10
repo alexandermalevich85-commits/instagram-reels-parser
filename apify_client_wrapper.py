@@ -26,7 +26,7 @@ class ApifyReelsScraper:
         logger.info("Starting Apify actor %s for %d users", self.config.actor_id, len(usernames))
 
         actor_input = {
-            "usernames": usernames,
+            "username": usernames,
             "resultsLimit": self.config.max_reels_per_profile,
         }
 
