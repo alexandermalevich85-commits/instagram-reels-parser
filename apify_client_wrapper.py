@@ -25,27 +25,49 @@ class ApifyReelsScraper:
     ) -> list[ReelData]:
         logger.info("Starting Apify actor %s for %d users", self.config.actor_id, len(usernames))
 
+        # Calculate relative date filter for onlyPostsNewerThan
+        days_back = (date.today() - start_date).days
+        if days_back < 1:
+            days_back = 1
+
         actor_input = {
             "username": usernames,
             "resultsLimit": self.config.max_reels_per_profile,
+            "onlyPostsNewerThan": f"{days_back} days",
         }
+
+        logger.info("Actor input: %s", {k: v for k, v in actor_input.items()})
 
         run = self.client.actor(self.config.actor_id).call(run_input=actor_input)
         dataset_id = run["defaultDatasetId"]
         items = self.client.dataset(dataset_id).list_items().items
 
-        logger.info("Received %d reels from Apify", len(items))
+        logger.info("Received %d items from Apify", len(items))
+
+        # Log all item types for debugging
+        type_counts: dict[str, int] = {}
+        for item in items:
+            t = item.get("type", "unknown")
+            type_counts[t] = type_counts.get(t, 0) + 1
+        logger.info("Item types breakdown: %s", type_counts)
 
         reels = []
         for item in items:
+            # Filter: only Video/Reel type (skip photos and carousels)
+            item_type = item.get("type", "")
+            if item_type not in ("Video", "Reel", "video", "reel"):
+                logger.debug("Skipping non-reel item type: %s", item_type)
+                continue
+
             reel = self._parse_item(item)
             if reel is None:
                 continue
-            if reel.taken_at and not (start_date <= reel.taken_at.date() <= end_date):
+            # Additional date check for end_date (onlyPostsNewerThan only handles start)
+            if reel.taken_at and reel.taken_at.date() > end_date:
                 continue
             reels.append(reel)
 
-        logger.info("After date filtering: %d reels", len(reels))
+        logger.info("After filtering (reels only, date range): %d reels", len(reels))
         return reels
 
     def fetch_follower_counts(self, usernames: list[str]) -> dict[str, int]:
@@ -71,12 +93,14 @@ class ApifyReelsScraper:
 
     def _parse_item(self, item: dict) -> Optional[ReelData]:
         try:
-            author = item.get("author", {}) or {}
+            # Post scraper uses "ownerUsername" primarily
             username = (
-                author.get("username", "")
-                or item.get("ownerUsername", "")
+                item.get("ownerUsername", "")
                 or item.get("username", "")
             )
+            author = item.get("author", {}) or {}
+            if not username:
+                username = author.get("username", "")
 
             shortcode = item.get("shortCode", "") or item.get("code", "")
             url = item.get("url", "")
@@ -91,7 +115,7 @@ class ApifyReelsScraper:
                 elif isinstance(timestamp, (int, float)):
                     taken_at = datetime.fromtimestamp(timestamp)
 
-            views = item.get("playsCount", 0) or item.get("viewsCount", 0) or item.get("videoViewCount", 0) or 0
+            views = item.get("videoPlayCount", 0) or item.get("videoViewCount", 0) or item.get("playsCount", 0) or item.get("viewsCount", 0) or 0
             likes = item.get("likesCount", 0) or item.get("likes", 0) or 0
             comments = item.get("commentsCount", 0) or item.get("comments", 0) or 0
             shares = item.get("sharesCount", 0) or 0
@@ -109,5 +133,5 @@ class ApifyReelsScraper:
                 caption=caption,
             )
         except Exception as e:
-            logger.warning("Failed to parse reel item: %s", e)
+            logger.warning("Failed to parse item: %s", e)
             return None
