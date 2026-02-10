@@ -22,7 +22,8 @@ class ApifyReelsScraper:
         usernames: list[str],
         start_date: date,
         end_date: date,
-    ) -> list[ReelData]:
+        return_raw: bool = False,
+    ) -> list[ReelData] | tuple[list[ReelData], list[dict]]:
         logger.info("Starting Apify actor %s for %d users", self.config.actor_id, len(usernames))
 
         actor_input = {
@@ -39,30 +40,47 @@ class ApifyReelsScraper:
 
         logger.info("Received %d items from Apify", len(items))
 
-        # Log all item types for debugging
+        # Log all item types and timestamps for debugging
         type_counts: dict[str, int] = {}
         for item in items:
             t = item.get("type", "unknown")
             type_counts[t] = type_counts.get(t, 0) + 1
+            logger.info(
+                "  Item: type=%s, timestamp=%s, url=%s",
+                item.get("type", "?"),
+                item.get("timestamp", "?"),
+                item.get("url", item.get("shortCode", "?"))[:80],
+            )
         logger.info("Item types breakdown: %s", type_counts)
 
         reels = []
+        skipped_type = 0
+        skipped_date = 0
+        skipped_parse = 0
         for item in items:
             # Filter: only Video/Reel type (skip photos and carousels)
             item_type = item.get("type", "")
             if item_type not in ("Video", "Reel", "video", "reel"):
-                logger.debug("Skipping non-reel item type: %s", item_type)
+                skipped_type += 1
                 continue
 
             reel = self._parse_item(item)
             if reel is None:
+                skipped_parse += 1
                 continue
             # Date range check (safety net in case Apify filter is unreliable)
             if reel.taken_at and not (start_date <= reel.taken_at.date() <= end_date):
+                logger.info("  Skipped by date: %s (taken_at=%s)", reel.url, reel.taken_at)
+                skipped_date += 1
                 continue
             reels.append(reel)
 
-        logger.info("After filtering (reels only, date range): %d reels", len(reels))
+        logger.info(
+            "Filtering result: %d reels kept, %d skipped by type, %d skipped by date, %d failed to parse",
+            len(reels), skipped_type, skipped_date, skipped_parse,
+        )
+        if return_raw:
+            return reels, items
         return reels
 
     def fetch_follower_counts(self, usernames: list[str]) -> dict[str, int]:

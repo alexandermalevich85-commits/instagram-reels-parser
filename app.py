@@ -126,12 +126,26 @@ if st.button("Run parser", type="primary", disabled=not can_run):
     # Fetch reels
     try:
         with st.spinner(f"Fetching reels for {len(usernames)} accounts via Apify..."):
-            reels = scraper.fetch_reels(usernames, start_date, end_date)
+            reels, raw_items = scraper.fetch_reels(usernames, start_date, end_date, return_raw=True)
     except Exception as e:
         st.error(f"Apify error: {e}")
         st.stop()
 
-    st.info(f"Fetched {len(reels)} reels in date range")
+    st.info(f"Fetched {len(reels)} reels in date range (from {len(raw_items)} total items from Apify)")
+
+    # Debug: show raw Apify response
+    with st.expander(f"Raw Apify data ({len(raw_items)} items)", expanded=False):
+        raw_rows = []
+        for item in raw_items:
+            raw_rows.append({
+                "type": item.get("type", "?"),
+                "timestamp": item.get("timestamp", "?"),
+                "url": (item.get("url", "") or "")[:80],
+                "videoPlayCount": item.get("videoPlayCount", ""),
+                "likesCount": item.get("likesCount", ""),
+                "commentsCount": item.get("commentsCount", ""),
+            })
+        st.dataframe(raw_rows, use_container_width=True, hide_index=True)
 
     if not reels:
         st.warning("No reels found. Check usernames and date range.")
