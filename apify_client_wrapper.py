@@ -25,15 +25,10 @@ class ApifyReelsScraper:
     ) -> list[ReelData]:
         logger.info("Starting Apify actor %s for %d users", self.config.actor_id, len(usernames))
 
-        # Calculate relative date filter for onlyPostsNewerThan
-        days_back = (date.today() - start_date).days
-        if days_back < 1:
-            days_back = 1
-
         actor_input = {
             "username": usernames,
             "resultsLimit": self.config.max_reels_per_profile,
-            "onlyPostsNewerThan": f"{days_back} days",
+            "onlyPostsNewerThan": start_date.isoformat(),
         }
 
         logger.info("Actor input: %s", {k: v for k, v in actor_input.items()})
@@ -62,8 +57,8 @@ class ApifyReelsScraper:
             reel = self._parse_item(item)
             if reel is None:
                 continue
-            # Additional date check for end_date (onlyPostsNewerThan only handles start)
-            if reel.taken_at and reel.taken_at.date() > end_date:
+            # Date range check (safety net in case Apify filter is unreliable)
+            if reel.taken_at and not (start_date <= reel.taken_at.date() <= end_date):
                 continue
             reels.append(reel)
 
