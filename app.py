@@ -148,6 +148,25 @@ if st.button("Run parser", type="primary", disabled=not can_run):
             st.warning(f"Could not fetch follower counts: {e}")
 
     enrich_with_followers(reels, api_followers, csv_followers)
+
+    # Show ALL fetched reels before filtering
+    with st.expander(f"All fetched reels ({len(reels)})", expanded=False):
+        all_rows = []
+        for r in reels:
+            from data_processor import calculate_engagement_rate
+            r.engagement_rate = calculate_engagement_rate(r)
+            all_rows.append({
+                "Username": r.username,
+                "Followers": r.follower_count,
+                "Date": r.taken_at.strftime("%Y-%m-%d %H:%M") if r.taken_at else "",
+                "Views": r.views,
+                "Likes": r.likes,
+                "Comments": r.comments,
+                "ER (%)": r.engagement_rate,
+                "Caption": r.caption[:80],
+            })
+        st.dataframe(all_rows, use_container_width=True, hide_index=True)
+
     viral = filter_viral_reels(reels, config)
 
     st.success(f"Found **{len(viral)}** viral reels (min views: {min_views:,}, min ER: {min_er}%)")
