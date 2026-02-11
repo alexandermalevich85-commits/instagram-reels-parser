@@ -45,10 +45,10 @@ except FileNotFoundError:
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Thresholds")
-min_views = st.sidebar.number_input("Min views", min_value=0, value=100_000, step=10_000)
-min_er = st.sidebar.number_input("Min engagement rate (%)", min_value=0.0, value=3.0, step=0.5)
+min_views = st.sidebar.number_input("Min views", min_value=0, value=0, step=10_000)
+min_er = st.sidebar.number_input("Min engagement rate (%)", min_value=0.0, value=0.0, step=0.5)
 
-max_reels = st.sidebar.number_input("Max reels per profile", min_value=5, max_value=200, value=50, step=5)
+max_reels = st.sidebar.number_input("Max reels per profile", min_value=1, max_value=200, value=50, step=5)
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Google Sheets export")
