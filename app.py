@@ -183,21 +183,26 @@ if st.button("Run parser", type="primary", disabled=not can_run):
         for r in reels:
             from data_processor import calculate_engagement_rate
             r.engagement_rate = calculate_engagement_rate(r)
-            all_rows.append({
+            row = {
                 "Username": r.username,
                 "Followers": r.follower_count,
                 "Date": r.taken_at.strftime("%Y-%m-%d %H:%M") if r.taken_at else "",
-                "Views": r.views,
-                "Likes": r.likes,
-                "Comments": r.comments,
-                "ER (%)": r.engagement_rate,
-                "Caption": r.caption[:80],
-            })
+            }
+            if content_type == "Reels":
+                row["Views"] = r.views
+            row["Likes"] = r.likes
+            row["Comments"] = r.comments
+            row["ER (%)"] = r.engagement_rate
+            row["Caption"] = r.caption[:80]
+            all_rows.append(row)
         st.dataframe(all_rows, use_container_width=True, hide_index=True)
 
-    viral = filter_viral_reels(reels, config)
+    viral = filter_viral_reels(reels, config, is_posts=(content_type != "Reels"))
 
-    st.success(f"Found **{len(viral)}** viral {content_label} (min views: {min_views:,}, min ER: {min_er}%)")
+    if content_type == "Reels":
+        st.success(f"Found **{len(viral)}** viral {content_label} (min views: {min_views:,}, min ER: {min_er}%)")
+    else:
+        st.success(f"Found **{len(viral)}** {content_label} (min ER: {min_er}%)")
 
     if not viral:
         st.info(f"No {content_label} matched the thresholds. Try lowering the minimums.")
@@ -206,26 +211,29 @@ if st.button("Run parser", type="primary", disabled=not can_run):
     # Store results in session
     st.session_state["viral_reels"] = viral
     st.session_state["config"] = config
+    st.session_state["content_type"] = content_type
 
 # ── Display results ──
 
 if "viral_reels" in st.session_state:
     viral = st.session_state["viral_reels"]
+    saved_content_type = st.session_state.get("content_type", "Reels")
 
     rows = []
     for r in viral:
-        rows.append({
+        row = {
             "Username": r.username,
             "Followers": r.follower_count,
             "URL": r.url,
             "Date": r.taken_at.strftime("%Y-%m-%d %H:%M") if r.taken_at else "",
-            "Views": r.views,
-            "Likes": r.likes,
-            "Comments": r.comments,
-            "Shares": r.shares,
-            "ER (%)": r.engagement_rate,
-            "Caption": r.caption[:100],
-        })
+        }
+        if saved_content_type == "Reels":
+            row["Views"] = r.views
+        row["Likes"] = r.likes
+        row["Comments"] = r.comments
+        row["ER (%)"] = r.engagement_rate
+        row["Caption"] = r.caption[:100]
+        rows.append(row)
 
     st.dataframe(rows, use_container_width=True, hide_index=True)
 

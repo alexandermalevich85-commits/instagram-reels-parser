@@ -3,10 +3,10 @@ from models import ReelData
 
 
 def calculate_engagement_rate(reel: ReelData) -> float:
-    """ER = (likes + comments + shares) / followers * 100"""
+    """ER = (likes + comments) / followers * 100"""
     if reel.follower_count <= 0:
         return 0.0
-    engagement = reel.likes + reel.comments + reel.shares
+    engagement = reel.likes + reel.comments
     return round((engagement / reel.follower_count) * 100, 2)
 
 
@@ -24,15 +24,25 @@ def enrich_with_followers(
         )
 
 
-def filter_viral_reels(reels: list[ReelData], config: AppConfig) -> list[ReelData]:
+def filter_viral_reels(reels: list[ReelData], config: AppConfig, is_posts: bool = False) -> list[ReelData]:
     for reel in reels:
         reel.engagement_rate = calculate_engagement_rate(reel)
 
-    viral = [
-        reel
-        for reel in reels
-        if reel.views >= config.min_views
-        and reel.engagement_rate >= config.min_engagement_rate
-    ]
-    viral.sort(key=lambda r: r.views, reverse=True)
+    if is_posts:
+        # Posts/Carousels: no views filter, sort by likes
+        viral = [
+            reel
+            for reel in reels
+            if reel.engagement_rate >= config.min_engagement_rate
+        ]
+        viral.sort(key=lambda r: r.likes, reverse=True)
+    else:
+        # Reels: filter by views, sort by views
+        viral = [
+            reel
+            for reel in reels
+            if reel.views >= config.min_views
+            and reel.engagement_rate >= config.min_engagement_rate
+        ]
+        viral.sort(key=lambda r: r.views, reverse=True)
     return viral
