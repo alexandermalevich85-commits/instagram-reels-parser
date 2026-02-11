@@ -52,7 +52,10 @@ max_reels = st.sidebar.number_input("Max reels per profile", min_value=1, max_va
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Google Sheets export")
-spreadsheet_name = st.sidebar.text_input("Spreadsheet name", value="Viral Reels Report")
+spreadsheet_url = st.sidebar.text_input(
+    "Google Spreadsheet URL",
+    placeholder="https://docs.google.com/spreadsheets/d/...",
+)
 
 # ── Main area: inputs ──
 
@@ -268,13 +271,13 @@ if "viral_reels" in st.session_state:
     has_sa = sa_json_file is not None or use_secrets_sa
     if not has_sa:
         st.info("Upload a Google Service Account JSON in the sidebar, or configure it in Streamlit secrets.")
+    if not spreadsheet_url:
+        st.warning("Paste your Google Spreadsheet URL in the sidebar.")
 
-    if st.button("Export to Google Sheets", disabled=not has_sa):
+    if st.button("Export to Google Sheets", disabled=not (has_sa and spreadsheet_url)):
         config = st.session_state.get("config", AppConfig())
 
-        sa_file_path = None
         if sa_json_file is not None:
-            # Write uploaded JSON to temp file
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json", mode="w")
             sa_data = json.loads(sa_json_file.getvalue().decode("utf-8"))
             json.dump(sa_data, tmp)
@@ -283,7 +286,9 @@ if "viral_reels" in st.session_state:
         elif use_secrets_sa:
             config.service_account_file = "__streamlit_secrets__"
 
-        with st.spinner("Exporting to Google Sheets..."):
-            url = export_to_sheets(viral, config, is_posts=(saved_content_type != "Reels"))
-
-        st.success(f"Exported! [Open spreadsheet]({url})")
+        try:
+            with st.spinner("Exporting to Google Sheets..."):
+                url = export_to_sheets(viral, config, is_posts=(saved_content_type != "Reels"), spreadsheet_url=spreadsheet_url)
+            st.success(f"Exported! [Open spreadsheet]({url})")
+        except Exception as e:
+            st.error(f"Export error: {e}")

@@ -20,15 +20,19 @@ def _get_gspread_client(config: AppConfig) -> gspread.Client:
     return gspread.service_account(filename=config.service_account_file)
 
 
-def export_to_sheets(reels: list[ReelData], config: AppConfig, is_posts: bool = False) -> str:
+def export_to_sheets(reels: list[ReelData], config: AppConfig, is_posts: bool = False, spreadsheet_url: str = "") -> str:
     gc = _get_gspread_client(config)
 
-    try:
-        spreadsheet = gc.open(config.spreadsheet_name)
-        logger.info("Opened existing spreadsheet: %s", config.spreadsheet_name)
-    except gspread.SpreadsheetNotFound:
-        spreadsheet = gc.create(config.spreadsheet_name)
-        logger.info("Created new spreadsheet: %s", config.spreadsheet_name)
+    if spreadsheet_url:
+        spreadsheet = gc.open_by_url(spreadsheet_url)
+        logger.info("Opened spreadsheet by URL: %s", spreadsheet_url)
+    else:
+        try:
+            spreadsheet = gc.open(config.spreadsheet_name)
+            logger.info("Opened existing spreadsheet: %s", config.spreadsheet_name)
+        except gspread.SpreadsheetNotFound:
+            spreadsheet = gc.create(config.spreadsheet_name)
+            logger.info("Created new spreadsheet: %s", config.spreadsheet_name)
 
     sheet_name = "Posts" if is_posts else "Reels"
     try:
