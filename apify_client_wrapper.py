@@ -73,15 +73,16 @@ class ApifyReelsScraper:
         end_date: date,
         return_raw: bool = False,
     ) -> list[ReelData] | tuple[list[ReelData], list[dict]]:
-        """Fetch posts/carousels via instagram-post-scraper (supports server-side date filter)."""
-        post_actor = "apify/instagram-post-scraper"
+        """Fetch posts/carousels via apify/instagram-scraper (full data with comments, likes, views)."""
+        post_actor = "apify/instagram-scraper"
         logger.info("Starting Apify actor %s for %d users", post_actor, len(usernames))
 
         all_items: list[dict] = []
 
         for username in usernames:
             actor_input = {
-                "username": [username],
+                "directUrls": [f"https://www.instagram.com/{username}/"],
+                "resultsType": "posts",
                 "resultsLimit": self.config.max_reels_per_profile,
                 "onlyPostsNewerThan": start_date.isoformat(),
             }
@@ -125,7 +126,7 @@ class ApifyReelsScraper:
         return posts
 
     def _parse_post_item(self, item: dict) -> Optional[ReelData]:
-        """Parse a post/carousel item from instagram-post-scraper."""
+        """Parse a post item from apify/instagram-scraper."""
         try:
             username = (
                 item.get("ownerUsername", "")
@@ -148,7 +149,12 @@ class ApifyReelsScraper:
                 elif isinstance(timestamp, (int, float)):
                     taken_at = datetime.fromtimestamp(timestamp)
 
-            views = item.get("videoPlayCount", 0) or item.get("videoViewCount", 0) or 0
+            views = (
+                item.get("videoViewCount", 0)
+                or item.get("videoPlayCount", 0)
+                or item.get("playsCount", 0)
+                or 0
+            )
             likes = item.get("likesCount", 0) or item.get("likes", 0) or 0
             comments = item.get("commentsCount", 0) or item.get("comments", 0) or 0
             shares = item.get("sharesCount", 0) or 0
