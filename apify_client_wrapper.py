@@ -26,23 +26,28 @@ class ApifyReelsScraper:
     ) -> list[ReelData] | tuple[list[ReelData], list[dict]]:
         logger.info("Starting Apify actor %s for %d users", self.config.actor_id, len(usernames))
 
-        actor_input = {
-            "username": usernames,
-            "resultsLimit": self.config.max_reels_per_profile,
-        }
+        all_items: list[dict] = []
 
-        logger.info("Actor input: %s", actor_input)
+        # Fetch reels per user separately so resultsLimit applies per profile
+        for username in usernames:
+            actor_input = {
+                "username": [username],
+                "resultsLimit": self.config.max_reels_per_profile,
+            }
+            logger.info("Fetching reels for @%s (limit=%d)", username, self.config.max_reels_per_profile)
 
-        run = self.client.actor(self.config.actor_id).call(run_input=actor_input)
-        dataset_id = run["defaultDatasetId"]
-        items = self.client.dataset(dataset_id).list_items().items
+            run = self.client.actor(self.config.actor_id).call(run_input=actor_input)
+            dataset_id = run["defaultDatasetId"]
+            items = self.client.dataset(dataset_id).list_items().items
+            logger.info("  @%s: received %d items", username, len(items))
+            all_items.extend(items)
 
-        logger.info("Received %d items from Apify", len(items))
+        logger.info("Total received: %d items from %d users", len(all_items), len(usernames))
 
         reels = []
         skipped_date = 0
         skipped_parse = 0
-        for item in items:
+        for item in all_items:
             reel = self._parse_item(item)
             if reel is None:
                 skipped_parse += 1
@@ -55,10 +60,10 @@ class ApifyReelsScraper:
 
         logger.info(
             "Filtering: %d reels in date range, %d outside range, %d failed to parse (from %d total)",
-            len(reels), skipped_date, skipped_parse, len(items),
+            len(reels), skipped_date, skipped_parse, len(all_items),
         )
         if return_raw:
-            return reels, items
+            return reels, all_items
         return reels
 
     def fetch_follower_counts(self, usernames: list[str]) -> dict[str, int]:
