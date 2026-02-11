@@ -96,7 +96,7 @@ with col2:
 
     st.subheader("Date range")
     today = date.today()
-    start_date = st.date_input("Start date", value=today - timedelta(days=30))
+    start_date = st.date_input("Start date", value=today - timedelta(days=3))
     end_date = st.date_input("End date", value=today)
 
 # Parse usernames
