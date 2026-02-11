@@ -134,7 +134,6 @@ if st.button("Run parser", type="primary", disabled=not can_run):
         max_reels_per_profile=max_reels,
         min_views=min_views,
         min_engagement_rate=min_er,
-        spreadsheet_name=spreadsheet_name,
     )
 
     scraper = ApifyReelsScraper(config)
