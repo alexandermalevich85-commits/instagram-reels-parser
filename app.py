@@ -71,11 +71,10 @@ with col1:
             st.session_state["saved_usernames"] = ""
         usernames_raw = st.text_area(
             "Usernames (one per line)",
-            value=st.session_state["saved_usernames"],
             placeholder="cristiano\ntheweeknd\ninstagram",
             height=150,
+            key="saved_usernames",
         )
-        st.session_state["saved_usernames"] = usernames_raw
     else:
         uploaded_csv = st.file_uploader("Upload CSV (columns: username, followers)", type=["csv"])
         if uploaded_csv is not None:
