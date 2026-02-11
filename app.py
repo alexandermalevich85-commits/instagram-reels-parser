@@ -52,10 +52,16 @@ max_reels = st.sidebar.number_input("Max reels per profile", min_value=1, max_va
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("Google Sheets export")
+default_sheet_url = st.query_params.get("sheet", "")
 spreadsheet_url = st.sidebar.text_input(
     "Google Spreadsheet URL",
+    value=default_sheet_url,
     placeholder="https://docs.google.com/spreadsheets/d/...",
 )
+if spreadsheet_url.strip():
+    st.query_params["sheet"] = spreadsheet_url.strip()
+elif "sheet" in st.query_params:
+    del st.query_params["sheet"]
 
 # ── Main area: inputs ──
 
