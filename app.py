@@ -279,6 +279,6 @@ if "viral_reels" in st.session_state:
             config.service_account_file = "__streamlit_secrets__"
 
         with st.spinner("Exporting to Google Sheets..."):
-            url = export_to_sheets(viral, config)
+            url = export_to_sheets(viral, config, is_posts=(saved_content_type != "Reels"))
 
         st.success(f"Exported! [Open spreadsheet]({url})")

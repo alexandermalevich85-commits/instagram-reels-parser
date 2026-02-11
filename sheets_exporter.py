@@ -20,7 +20,7 @@ def _get_gspread_client(config: AppConfig) -> gspread.Client:
     return gspread.service_account(filename=config.service_account_file)
 
 
-def export_to_sheets(reels: list[ReelData], config: AppConfig) -> str:
+def export_to_sheets(reels: list[ReelData], config: AppConfig, is_posts: bool = False) -> str:
     gc = _get_gspread_client(config)
 
     try:
@@ -30,46 +30,49 @@ def export_to_sheets(reels: list[ReelData], config: AppConfig) -> str:
         spreadsheet = gc.create(config.spreadsheet_name)
         logger.info("Created new spreadsheet: %s", config.spreadsheet_name)
 
+    sheet_name = "Posts" if is_posts else "Reels"
     try:
-        worksheet = spreadsheet.worksheet(config.worksheet_name)
+        worksheet = spreadsheet.worksheet(sheet_name)
         worksheet.clear()
     except gspread.WorksheetNotFound:
         worksheet = spreadsheet.add_worksheet(
-            title=config.worksheet_name,
+            title=sheet_name,
             rows=len(reels) + 1,
             cols=10,
         )
 
-    headers = [
-        "Username",
-        "Followers",
-        "Reel URL",
-        "Date",
-        "Views",
-        "Likes",
-        "Comments",
-        "Shares",
-        "ER (%)",
-        "Caption",
-    ]
-
-    rows = [headers]
-    for reel in reels:
-        rows.append([
-            reel.username,
-            reel.follower_count,
-            reel.url,
-            reel.taken_at.strftime("%Y-%m-%d %H:%M") if reel.taken_at else "",
-            reel.views,
-            reel.likes,
-            reel.comments,
-            reel.shares,
-            reel.engagement_rate,
-            reel.caption[:200],
-        ])
+    if is_posts:
+        headers = ["Username", "Followers", "URL", "Date", "Likes", "Comments", "ER (%)", "Caption"]
+        rows = [headers]
+        for reel in reels:
+            rows.append([
+                reel.username,
+                reel.follower_count,
+                reel.url,
+                reel.taken_at.strftime("%Y-%m-%d %H:%M") if reel.taken_at else "",
+                reel.likes,
+                reel.comments,
+                reel.engagement_rate,
+                reel.caption,
+            ])
+    else:
+        headers = ["Username", "Followers", "URL", "Date", "Views", "Likes", "Comments", "ER (%)", "Caption"]
+        rows = [headers]
+        for reel in reels:
+            rows.append([
+                reel.username,
+                reel.follower_count,
+                reel.url,
+                reel.taken_at.strftime("%Y-%m-%d %H:%M") if reel.taken_at else "",
+                reel.views,
+                reel.likes,
+                reel.comments,
+                reel.engagement_rate,
+                reel.caption,
+            ])
 
     worksheet.update(range_name="A1", values=rows)
 
     url = spreadsheet.url
-    logger.info("Exported %d reels to Google Sheets: %s", len(reels), url)
+    logger.info("Exported %d items to Google Sheets: %s", len(reels), url)
     return url
