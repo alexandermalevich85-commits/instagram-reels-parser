@@ -16,9 +16,9 @@ from sheets_exporter import export_to_sheets
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-st.set_page_config(page_title="Instagram Viral Reels Parser", page_icon="🎬", layout="wide")
-st.title("Instagram Viral Reels Parser")
-st.caption("Find viral reels among your competitors")
+st.set_page_config(page_title="Instagram Content Parser", page_icon="🎬", layout="wide")
+st.title("Instagram Content Parser")
+st.caption("Find viral content among your competitors")
 
 # ── Sidebar: settings ──
 
@@ -91,6 +91,9 @@ with col1:
             st.info(f"Loaded {len(lines)} usernames from CSV")
 
 with col2:
+    st.subheader("Content type")
+    content_type = st.radio("What to parse", ["Reels", "Posts / Carousels"], horizontal=True)
+
     st.subheader("Date range")
     today = date.today()
     start_date = st.date_input("Start date", value=today - timedelta(days=30))
@@ -123,15 +126,20 @@ if st.button("Run parser", type="primary", disabled=not can_run):
 
     scraper = ApifyReelsScraper(config)
 
-    # Fetch reels
+    # Fetch content
+    content_label = "reels" if content_type == "Reels" else "posts"
     try:
-        with st.spinner(f"Fetching reels for {len(usernames)} accounts via Apify..."):
-            reels, raw_items = scraper.fetch_reels(usernames, start_date, end_date, return_raw=True)
+        with st.spinner(f"Fetching {content_label} for {len(usernames)} accounts via Apify..."):
+            if content_type == "Reels":
+                results, raw_items = scraper.fetch_reels(usernames, start_date, end_date, return_raw=True)
+            else:
+                results, raw_items = scraper.fetch_posts(usernames, start_date, end_date, return_raw=True)
     except Exception as e:
         st.error(f"Apify error: {e}")
         st.stop()
 
-    st.info(f"Fetched {len(reels)} reels in date range (from {len(raw_items)} total items from Apify)")
+    reels = results  # keep variable name for downstream compatibility
+    st.info(f"Fetched {len(reels)} {content_label} in date range (from {len(raw_items)} total items from Apify)")
 
     # Debug: show raw Apify response
     with st.expander(f"Raw Apify data ({len(raw_items)} items)", expanded=False):
@@ -148,7 +156,7 @@ if st.button("Run parser", type="primary", disabled=not can_run):
         st.dataframe(raw_rows, use_container_width=True, hide_index=True)
 
     if not reels:
-        st.warning("No reels found. Check usernames and date range.")
+        st.warning(f"No {content_label} found. Check usernames and date range.")
         st.stop()
 
     # Fetch followers if needed
@@ -163,8 +171,8 @@ if st.button("Run parser", type="primary", disabled=not can_run):
 
     enrich_with_followers(reels, api_followers, csv_followers)
 
-    # Show ALL fetched reels before filtering
-    with st.expander(f"All fetched reels ({len(reels)})", expanded=False):
+    # Show ALL fetched items before filtering
+    with st.expander(f"All fetched {content_label} ({len(reels)})", expanded=False):
         all_rows = []
         for r in reels:
             from data_processor import calculate_engagement_rate
@@ -183,10 +191,10 @@ if st.button("Run parser", type="primary", disabled=not can_run):
 
     viral = filter_viral_reels(reels, config)
 
-    st.success(f"Found **{len(viral)}** viral reels (min views: {min_views:,}, min ER: {min_er}%)")
+    st.success(f"Found **{len(viral)}** viral {content_label} (min views: {min_views:,}, min ER: {min_er}%)")
 
     if not viral:
-        st.info("No reels matched the thresholds. Try lowering the minimums.")
+        st.info(f"No {content_label} matched the thresholds. Try lowering the minimums.")
         st.stop()
 
     # Store results in session

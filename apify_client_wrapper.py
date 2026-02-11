@@ -66,6 +66,109 @@ class ApifyReelsScraper:
             return reels, all_items
         return reels
 
+    def fetch_posts(
+        self,
+        usernames: list[str],
+        start_date: date,
+        end_date: date,
+        return_raw: bool = False,
+    ) -> list[ReelData] | tuple[list[ReelData], list[dict]]:
+        """Fetch posts/carousels via instagram-post-scraper (supports server-side date filter)."""
+        post_actor = "apify/instagram-post-scraper"
+        logger.info("Starting Apify actor %s for %d users", post_actor, len(usernames))
+
+        all_items: list[dict] = []
+
+        for username in usernames:
+            actor_input = {
+                "username": [username],
+                "resultsLimit": self.config.max_reels_per_profile,
+                "onlyPostsNewerThan": start_date.isoformat(),
+            }
+            logger.info("Fetching posts for @%s (limit=%d, since=%s)", username, self.config.max_reels_per_profile, start_date)
+
+            run = self.client.actor(post_actor).call(run_input=actor_input)
+            dataset_id = run["defaultDatasetId"]
+            items = self.client.dataset(dataset_id).list_items().items
+            logger.info("  @%s: received %d items", username, len(items))
+            all_items.extend(items)
+
+        logger.info("Total received: %d items from %d users", len(all_items), len(usernames))
+
+        posts = []
+        skipped_type = 0
+        skipped_date = 0
+        skipped_parse = 0
+        for item in all_items:
+            # Skip Video (reels) — keep only Sidecar (carousels) and Image (photos)
+            item_type = item.get("type", "")
+            if item_type in ("Video", "video"):
+                skipped_type += 1
+                continue
+
+            parsed = self._parse_post_item(item)
+            if parsed is None:
+                skipped_parse += 1
+                continue
+            # Safety date check
+            if parsed.taken_at and not (start_date <= parsed.taken_at.date() <= end_date):
+                skipped_date += 1
+                continue
+            posts.append(parsed)
+
+        logger.info(
+            "Filtering: %d posts kept, %d skipped (video/reel), %d outside date, %d failed to parse (from %d total)",
+            len(posts), skipped_type, skipped_date, skipped_parse, len(all_items),
+        )
+        if return_raw:
+            return posts, all_items
+        return posts
+
+    def _parse_post_item(self, item: dict) -> Optional[ReelData]:
+        """Parse a post/carousel item from instagram-post-scraper."""
+        try:
+            username = (
+                item.get("ownerUsername", "")
+                or item.get("username", "")
+            )
+            author = item.get("author", {}) or {}
+            if not username:
+                username = author.get("username", "")
+
+            shortcode = item.get("shortCode", "") or item.get("code", "")
+            url = item.get("url", "")
+            if not url and shortcode:
+                url = f"https://www.instagram.com/p/{shortcode}/"
+
+            taken_at = None
+            timestamp = item.get("timestamp")
+            if timestamp:
+                if isinstance(timestamp, str):
+                    taken_at = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                elif isinstance(timestamp, (int, float)):
+                    taken_at = datetime.fromtimestamp(timestamp)
+
+            views = item.get("videoPlayCount", 0) or item.get("videoViewCount", 0) or 0
+            likes = item.get("likesCount", 0) or item.get("likes", 0) or 0
+            comments = item.get("commentsCount", 0) or item.get("comments", 0) or 0
+            shares = item.get("sharesCount", 0) or 0
+            caption = item.get("caption", "") or ""
+
+            return ReelData(
+                username=username,
+                shortcode=shortcode,
+                url=url,
+                taken_at=taken_at,
+                views=views,
+                likes=likes,
+                comments=comments,
+                shares=shares,
+                caption=caption,
+            )
+        except Exception as e:
+            logger.warning("Failed to parse post item: %s", e)
+            return None
+
     def fetch_follower_counts(self, usernames: list[str]) -> dict[str, int]:
         logger.info("Fetching follower counts for %d users via %s", len(usernames), self.config.profile_actor_id)
 
