@@ -66,15 +66,21 @@ with col1:
     csv_followers: dict[str, int] = {}
 
     if input_mode == "Type usernames":
-        # Remember last entered usernames within the session
-        if "saved_usernames" not in st.session_state:
-            st.session_state["saved_usernames"] = ""
+        # Restore usernames from URL query params (survives page reload)
+        params = st.query_params
+        default_usernames = params.get("u", "").replace(",", "\n")
         usernames_raw = st.text_area(
             "Usernames (one per line)",
+            value=default_usernames,
             placeholder="cristiano\ntheweeknd\ninstagram",
             height=150,
-            key="saved_usernames",
         )
+        # Save to URL query params so they persist across reloads
+        if usernames_raw.strip():
+            names_csv = ",".join(u.strip() for u in usernames_raw.strip().splitlines() if u.strip())
+            st.query_params["u"] = names_csv
+        elif "u" in params:
+            del st.query_params["u"]
     else:
         uploaded_csv = st.file_uploader("Upload CSV (columns: username, followers)", type=["csv"])
         if uploaded_csv is not None:
