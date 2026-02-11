@@ -151,9 +151,15 @@ if st.button("Run parser", type="primary", disabled=not can_run):
                 "url": (item.get("url", "") or "")[:80],
                 "videoPlayCount": item.get("videoPlayCount", ""),
                 "likesCount": item.get("likesCount", ""),
+                "likes": item.get("likes", ""),
                 "commentsCount": item.get("commentsCount", ""),
+                "comments": item.get("comments", ""),
+                "sharesCount": item.get("sharesCount", ""),
             })
         st.dataframe(raw_rows, use_container_width=True, hide_index=True)
+        # Show first item's full keys for debugging
+        if raw_items:
+            st.code(f"Available fields: {sorted(raw_items[0].keys())}")
 
     if not reels:
         st.warning(f"No {content_label} found. Check usernames and date range.")
