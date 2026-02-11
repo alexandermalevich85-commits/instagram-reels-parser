@@ -66,11 +66,16 @@ with col1:
     csv_followers: dict[str, int] = {}
 
     if input_mode == "Type usernames":
+        # Remember last entered usernames within the session
+        if "saved_usernames" not in st.session_state:
+            st.session_state["saved_usernames"] = ""
         usernames_raw = st.text_area(
             "Usernames (one per line)",
+            value=st.session_state["saved_usernames"],
             placeholder="cristiano\ntheweeknd\ninstagram",
             height=150,
         )
+        st.session_state["saved_usernames"] = usernames_raw
     else:
         uploaded_csv = st.file_uploader("Upload CSV (columns: username, followers)", type=["csv"])
         if uploaded_csv is not None:
