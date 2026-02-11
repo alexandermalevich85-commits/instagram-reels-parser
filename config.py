@@ -8,7 +8,7 @@ import yaml
 class AppConfig:
     # Apify
     apify_token: str = ""
-    actor_id: str = "apify/instagram-post-scraper"
+    actor_id: str = "apify/instagram-reel-scraper"
     profile_actor_id: str = "apify/instagram-profile-scraper"
     max_reels_per_profile: int = 50
 
@@ -40,7 +40,7 @@ def load_config(config_path: str = "config.yaml") -> AppConfig:
 
     return AppConfig(
         apify_token=apify.get("token", ""),
-        actor_id=apify.get("actor_id", "apify/instagram-post-scraper"),
+        actor_id=apify.get("actor_id", "apify/instagram-reel-scraper"),
         profile_actor_id=apify.get("profile_actor_id", "apify/instagram-profile-scraper"),
         max_reels_per_profile=apify.get("max_reels_per_profile", 50),
         min_views=thresholds.get("min_views", 100_000),

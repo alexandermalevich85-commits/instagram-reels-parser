@@ -29,10 +29,9 @@ class ApifyReelsScraper:
         actor_input = {
             "username": usernames,
             "resultsLimit": self.config.max_reels_per_profile,
-            "onlyPostsNewerThan": start_date.isoformat(),
         }
 
-        logger.info("Actor input: %s", {k: v for k, v in actor_input.items()})
+        logger.info("Actor input: %s", actor_input)
 
         run = self.client.actor(self.config.actor_id).call(run_input=actor_input)
         dataset_id = run["defaultDatasetId"]
@@ -40,45 +39,23 @@ class ApifyReelsScraper:
 
         logger.info("Received %d items from Apify", len(items))
 
-        # Log all item types and timestamps for debugging
-        type_counts: dict[str, int] = {}
-        for item in items:
-            t = item.get("type", "unknown")
-            type_counts[t] = type_counts.get(t, 0) + 1
-            logger.info(
-                "  Item: type=%s, timestamp=%s, url=%s",
-                item.get("type", "?"),
-                item.get("timestamp", "?"),
-                item.get("url", item.get("shortCode", "?"))[:80],
-            )
-        logger.info("Item types breakdown: %s", type_counts)
-
         reels = []
-        skipped_type = 0
         skipped_date = 0
         skipped_parse = 0
         for item in items:
-            # Skip pure Image posts; keep Video, Sidecar, Reel
-            # Sidecars often contain video reels in Instagram
-            item_type = item.get("type", "")
-            if item_type == "Image":
-                skipped_type += 1
-                continue
-
             reel = self._parse_item(item)
             if reel is None:
                 skipped_parse += 1
                 continue
-            # Date range check (safety net in case Apify filter is unreliable)
+            # Client-side date filtering
             if reel.taken_at and not (start_date <= reel.taken_at.date() <= end_date):
-                logger.info("  Skipped by date: %s (taken_at=%s)", reel.url, reel.taken_at)
                 skipped_date += 1
                 continue
             reels.append(reel)
 
         logger.info(
-            "Filtering result: %d reels kept, %d skipped by type, %d skipped by date, %d failed to parse",
-            len(reels), skipped_type, skipped_date, skipped_parse,
+            "Filtering: %d reels in date range, %d outside range, %d failed to parse (from %d total)",
+            len(reels), skipped_date, skipped_parse, len(items),
         )
         if return_raw:
             return reels, items
@@ -107,14 +84,12 @@ class ApifyReelsScraper:
 
     def _parse_item(self, item: dict) -> Optional[ReelData]:
         try:
-            # Post scraper uses "ownerUsername" primarily
+            author = item.get("author", {}) or {}
             username = (
-                item.get("ownerUsername", "")
+                author.get("username", "")
+                or item.get("ownerUsername", "")
                 or item.get("username", "")
             )
-            author = item.get("author", {}) or {}
-            if not username:
-                username = author.get("username", "")
 
             shortcode = item.get("shortCode", "") or item.get("code", "")
             url = item.get("url", "")
@@ -129,7 +104,13 @@ class ApifyReelsScraper:
                 elif isinstance(timestamp, (int, float)):
                     taken_at = datetime.fromtimestamp(timestamp)
 
-            views = item.get("videoPlayCount", 0) or item.get("videoViewCount", 0) or item.get("playsCount", 0) or item.get("viewsCount", 0) or 0
+            views = (
+                item.get("playsCount", 0)
+                or item.get("videoPlayCount", 0)
+                or item.get("viewsCount", 0)
+                or item.get("videoViewCount", 0)
+                or 0
+            )
             likes = item.get("likesCount", 0) or item.get("likes", 0) or 0
             comments = item.get("commentsCount", 0) or item.get("comments", 0) or 0
             shares = item.get("sharesCount", 0) or 0
@@ -147,5 +128,5 @@ class ApifyReelsScraper:
                 caption=caption,
             )
         except Exception as e:
-            logger.warning("Failed to parse item: %s", e)
+            logger.warning("Failed to parse reel item: %s", e)
             return None
