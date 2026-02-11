@@ -193,7 +193,7 @@ if st.button("Run parser", type="primary", disabled=not can_run):
             row["Likes"] = r.likes
             row["Comments"] = r.comments
             row["ER (%)"] = r.engagement_rate
-            row["Caption"] = r.caption[:80]
+            row["Caption"] = r.caption
             all_rows.append(row)
         st.dataframe(all_rows, use_container_width=True, hide_index=True)
 
@@ -232,7 +232,7 @@ if "viral_reels" in st.session_state:
         row["Likes"] = r.likes
         row["Comments"] = r.comments
         row["ER (%)"] = r.engagement_rate
-        row["Caption"] = r.caption[:100]
+        row["Caption"] = r.caption
         rows.append(row)
 
     st.dataframe(rows, use_container_width=True, hide_index=True)
